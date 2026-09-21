@@ -260,6 +260,7 @@
     }
 
     resetQueryBtn();
+    fetchHistory(); // Actualizar el historial al terminar una consulta
 
     // Mostrar resultados con delay para que se vea el 100%
     setTimeout(() => renderResults(job), 500);
@@ -406,7 +407,65 @@
   }
   function escAttr(str) { return escHtml(str); }
 
+  // ─── Historial Dinámico ────────────────────────────────
+  const historyBtn = document.getElementById('historyBtn');
+  const historyPanel = document.getElementById('historyPanel');
+  const historyList = document.getElementById('historyList');
+  const historyDateLabel = document.getElementById('historyDateLabel');
+
+  if (historyBtn && historyPanel) {
+    historyBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      historyPanel.classList.toggle('hidden');
+      if (!historyPanel.classList.contains('hidden')) {
+        fetchHistory();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!historyPanel.contains(e.target) && e.target !== historyBtn) {
+        historyPanel.classList.add('hidden');
+      }
+    });
+  }
+
+  async function fetchHistory() {
+    try {
+      const res = await fetch('/api/history');
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      if (historyDateLabel) {
+        historyDateLabel.textContent = data.date || 'Hoy';
+      }
+
+      if (historyList) {
+        if (!data.history || data.history.length === 0) {
+          historyList.innerHTML = '<div class="history-empty">No hay consultas aún</div>';
+          return;
+        }
+
+        let html = '';
+        data.history.forEach(item => {
+          html += `
+            <div class="history-item">
+              <div class="history-item-info">
+                <span class="history-item-name">${escHtml(item.consultantName)}</span>
+                <span class="history-item-doc">${escHtml(item.docType)}: ${escHtml(item.docNumber)}</span>
+              </div>
+              <span class="history-item-time">${escHtml(item.time)}</span>
+            </div>
+          `;
+        });
+        historyList.innerHTML = html;
+      }
+    } catch (e) {
+      console.error('Error fetching history:', e);
+    }
+  }
+
   // ─── Arrancar ────────────────────────────────────────
   init();
+  fetchHistory();
 
 })();

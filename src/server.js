@@ -27,6 +27,18 @@ const jobs = new Map();
 const requestQueue = [];
 let isProcessing = false;
 
+// ─── Historial de Consultas Diario ──────────────────────────────────────────
+let queryHistory = [];
+let currentHistoryDate = new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+
+function checkHistoryReset() {
+  const today = new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+  if (today !== currentHistoryDate) {
+    queryHistory = [];
+    currentHistoryDate = today;
+  }
+}
+
 function createJob(consultantName = 'Anónimo') {
   const id = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   jobs.set(id, {
@@ -129,6 +141,16 @@ app.post('/api/consultar', requireAuth, (req, res) => {
   job.docType = type.toUpperCase();
   job.docNumber = String(number).trim();
 
+  // Registrar en historial (verificando si cambió de día)
+  checkHistoryReset();
+  queryHistory.unshift({
+    id: jobId,
+    consultantName: finalName,
+    docType: job.docType,
+    docNumber: job.docNumber,
+    time: new Date().toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' })
+  });
+
   // Añadir a la cola y procesar si está libre
   requestQueue.push(jobId);
   jobLog(jobId, `Añadido a la cola de espera. Posición: ${requestQueue.length}`, 'info');
@@ -169,6 +191,12 @@ app.get('/api/queue', requireAuth, (req, res) => {
   });
 
   res.json({ queue: queueStatus });
+});
+
+// GET /api/history — Obtener historial del día actual
+app.get('/api/history', requireAuth, (req, res) => {
+  checkHistoryReset();
+  res.json({ history: queryHistory, date: currentHistoryDate });
 });
 
 // Función para procesar la cola uno a uno
