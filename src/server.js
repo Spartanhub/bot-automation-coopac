@@ -65,30 +65,16 @@ app.use('/public', express.static(PUBLIC));   // CSS, JS, assets, imágenes
 
 // ─── Middleware de autenticación JWT ─────────────────────────────────────────
 function requireAuth(req, res, next) {
-  const token = req.cookies?.token;
-  if (!token) {
-    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'No autenticado' });
-    return res.redirect('/login');
-  }
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    res.clearCookie('token');
-    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Sesión expirada' });
-    return res.redirect('/login');
-  }
+  // Login desactivado a petición del usuario
+  req.user = { username: 'Usuario' };
+  next();
 }
 
 // ─── Rutas de autenticación ───────────────────────────────────────────────────
 
 // GET /login — Página de login
 app.get('/login', (req, res) => {
-  const token = req.cookies?.token;
-  if (token) {
-    try { jwt.verify(token, JWT_SECRET); return res.redirect('/'); } catch { /* continuar */ }
-  }
-  res.sendFile(path.join(PUBLIC, 'login.html'));
+  res.redirect('/');
 });
 
 // POST /api/auth/login — Procesa credenciales
