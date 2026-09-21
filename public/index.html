@@ -31,30 +31,27 @@
           <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
           <span id="navUsername">Usuario</span>
         </div>
-        <div style="position: relative;">
-          <button id="historyBtn" class="btn btn-ghost btn-sm" title="Ver Historial de hoy">
-            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
-            Historial
-          </button>
-          
-          <div id="historyPanel" class="history-dropdown hidden">
-            <div class="history-header">
-              <h4>Historial de Consultas</h4>
-              <span id="historyDateLabel" class="history-date">Hoy</span>
-            </div>
-            <div id="historyList" class="history-list">
-              <!-- Renderizado dinámico -->
-              <div class="history-empty">No hay consultas aún</div>
-            </div>
-          </div>
-        </div>
         <!-- Botón salir removido -->
       </div>
     </div>
   </header>
 
-  <!-- Main Content -->
-  <main class="main-content">
+  <!-- Layout Principal -->
+  <div class="app-layout">
+
+    <!-- Historial Lateral -->
+    <aside class="history-sidebar glass-card">
+      <div class="history-header">
+        <h4>Historial Diario</h4>
+        <span id="historyDateLabel" class="history-date">Hoy</span>
+      </div>
+      <div id="historyList" class="history-list">
+        <div class="history-empty">Cargando...</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
 
     <!-- Hero / Consulta -->
     <section class="hero-section">
@@ -217,7 +214,8 @@
       </div>
     </section>
 
-  </main>
+    </main>
+  </div>
 
   <!-- Modal visor de imagen -->
   <div id="imageModal" class="modal-overlay hidden" role="dialog" aria-modal="true">

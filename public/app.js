@@ -408,26 +408,8 @@
   function escAttr(str) { return escHtml(str); }
 
   // ─── Historial Dinámico ────────────────────────────────
-  const historyBtn = document.getElementById('historyBtn');
-  const historyPanel = document.getElementById('historyPanel');
   const historyList = document.getElementById('historyList');
   const historyDateLabel = document.getElementById('historyDateLabel');
-
-  if (historyBtn && historyPanel) {
-    historyBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      historyPanel.classList.toggle('hidden');
-      if (!historyPanel.classList.contains('hidden')) {
-        fetchHistory();
-      }
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!historyPanel.contains(e.target) && e.target !== historyBtn) {
-        historyPanel.classList.add('hidden');
-      }
-    });
-  }
 
   async function fetchHistory() {
     try {
