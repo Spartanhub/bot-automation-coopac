@@ -1,0 +1,31 @@
+{
+  "name": "bot-sbs-coopac",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp para consultas automatizadas de Central de Riesgos en SBS COOPAC con capturas de pantalla",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "web": "node src/server.js",
+    "test:sbs": "node src/test_sbs.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "puppeteer": "^24.4.0",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "git+https://github.com/pedroslopez/whatsapp-web.js.git#main"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "sbs",
+    "coopac",
+    "scraper",
+    "puppeteer"
+  ],
+  "author": "",
+  "license": "ISC"
+}

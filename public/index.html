@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consultas | SBS COOPAC + INSACO LAFT</title>
+  <meta name="description" content="Consulta Central de Riesgos SBS COOPAC y listas PLAFT INSACO por DNI, RUC o Carnet de Extranjería" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/public/style.css" />
+</head>
+<body class="app-page">
+
+  <div class="bg-mesh"></div>
+
+  <!-- Header / Navbar -->
+  <header class="navbar">
+    <div class="navbar-inner">
+      <div class="navbar-brand">
+        <div class="brand-icon brand-icon-sm">
+          <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" fill="url(#g2)" opacity="0.15"/><path d="M14 28C14 22 18 17 24 17C30 17 34 22 34 28" stroke="url(#g2)" stroke-width="2.5" stroke-linecap="round"/><circle cx="24" cy="28" r="4" fill="url(#g2)"/><path d="M20 34h8" stroke="url(#g2)" stroke-width="2.5" stroke-linecap="round"/><defs><linearGradient id="g2" x1="14" y1="17" x2="34" y2="34" gradientUnits="userSpaceOnUse"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs></svg>
+        </div>
+        <div>
+          <span class="navbar-title">SBS COOPAC</span>
+          <span class="navbar-subtitle">Central de Riesgos + PLAFT</span>
+        </div>
+      </div>
+      <div class="navbar-actions">
+        <div class="user-badge">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+          <span id="navUsername">Usuario</span>
+        </div>
+        <button id="logoutBtn" class="btn btn-ghost btn-sm" title="Cerrar sesión">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h6a1 1 0 100-2H4V5h5a1 1 0 000-2H3zm10.293 4.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L14.586 12H8a1 1 0 110-2h6.586l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          Salir
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Hero / Consulta -->
+    <section class="hero-section">
+      <div class="hero-text">
+        <h2 class="hero-title">Consulta de Documentos</h2>
+        <p class="hero-desc">Ingresa el tipo y número de documento para obtener el reporte de Central de Riesgos (SBS COOPAC) y verificación en listas PLAFT (INSACO LAFT)</p>
+      </div>
+
+      <!-- Formulario de consulta -->
+      <div class="query-card glass-card">
+        <form id="queryForm" novalidate>
+          <div class="query-row">
+            <div class="field-group field-group-compact">
+              <label for="consultantName" class="field-label">¿Quién consulta?</label>
+              <div class="field-wrap">
+                <span class="field-icon">
+                  <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+                </span>
+                <input id="consultantName" type="text" class="field-input" placeholder="Ej: Flavio Medina" required />
+              </div>
+            </div>
+
+            <div class="field-group field-group-compact">
+              <label for="docType" class="field-label">Tipo de Documento</label>
+              <div class="field-wrap">
+                <span class="field-icon">
+                  <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm3 1h6v4H7V5zm6 6H7v2h6v-2z" clip-rule="evenodd"/></svg>
+                </span>
+                <select id="docType" class="field-input field-select">
+                  <option value="DNI">DNI — Documento Nacional de Identidad</option>
+                  <option value="RUC">RUC — Registro Único de Contribuyentes</option>
+                  <option value="CE">CE — Carnet de Extranjería</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group field-group-compact">
+              <label for="docNumber" class="field-label">Número de Documento</label>
+              <div class="field-wrap">
+                <span class="field-icon">
+                  <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+                </span>
+                <input
+                  id="docNumber"
+                  type="text"
+                  class="field-input"
+                  placeholder="Ej: 74659034"
+                  maxlength="20"
+                  autocomplete="off"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="query-action">
+              <label class="field-label">&nbsp;</label>
+              <button type="submit" id="queryBtn" class="btn btn-primary btn-consult">
+                <svg id="queryIcon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                <span id="queryBtnText">Consultar</span>
+                <span id="querySpinner" class="btn-spinner hidden"></span>
+              </button>
+            </div>
+          </div>
+
+          <div id="queryError" class="login-error hidden">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            <span id="queryErrorText"></span>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Cola de Espera -->
+    <section id="queueSection" class="queue-section hidden" style="margin-top: 1rem;">
+      <div class="glass-card">
+        <h3 class="queue-title" style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: #f8fafc;">
+          <div class="pulse-dot"></div>
+          Cola de Espera Activa (<span id="queueCount">0</span>)
+        </h3>
+        <div class="table-responsive" style="overflow-x: auto;">
+          <table class="queue-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+            <thead>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8;">
+                <th style="padding: 0.75rem 0.5rem;">Estado</th>
+                <th style="padding: 0.75rem 0.5rem;">Consultante</th>
+                <th style="padding: 0.75rem 0.5rem;">Doc.</th>
+                <th style="padding: 0.75rem 0.5rem;">Número</th>
+              </tr>
+            </thead>
+            <tbody id="queueTableBody">
+              <!-- Renderizado dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel de Progreso -->
+    <section id="progressSection" class="progress-section hidden">
+      <div class="glass-card progress-card">
+        <div class="progress-header">
+          <div class="progress-title-row">
+            <div class="pulse-dot" id="pulseDot"></div>
+            <h3 class="progress-title">Procesando consulta</h3>
+          </div>
+          <div id="progressDoc" class="progress-doc-badge"></div>
+        </div>
+
+        <!-- Barra de progreso -->
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progressBar" style="width: 5%"></div>
+        </div>
+
+        <!-- Log de pasos -->
+        <div class="steps-log" id="stepsLog">
+          <div class="step-item step-info">
+            <span class="step-icon">⏳</span>
+            <span>Iniciando proceso...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Resultados -->
+    <section id="resultsSection" class="results-section hidden">
+
+      <div class="results-columns">
+
+        <!-- Columna SBS -->
+        <div class="results-col">
+          <div class="results-header">
+            <div class="results-badge badge-blue">SBS COOPAC</div>
+            <h3 class="results-title">Central de Riesgos</h3>
+            <p id="sbsResultsCount" class="results-meta"></p>
+          </div>
+          <div id="sbsGallery" class="gallery-grid"></div>
+        </div>
+
+        <!-- Columna INSACO -->
+        <div class="results-col">
+          <div class="results-header">
+            <div id="insacoBadge" class="results-badge badge-green">INSACO LAFT</div>
+            <h3 class="results-title">Verificación Listas PLAFT</h3>
+            <p id="insacoResultMeta" class="results-meta"></p>
+          </div>
+          <div id="insacoResultBlock" class="gallery-grid"></div>
+        </div>
+
+      </div>
+
+      <!-- Nueva consulta -->
+      <div class="new-query-row">
+        <button id="newQueryBtn" class="btn btn-secondary">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+          Nueva Consulta
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal visor de imagen -->
+  <div id="imageModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <button id="modalClose" class="modal-close" title="Cerrar">&times;</button>
+      <div class="modal-label-row">
+        <span id="modalLabel" class="modal-label"></span>
+        <a id="modalDownload" href="#" download class="btn btn-sm btn-ghost">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          Descargar
+        </a>
+      </div>
+      <img id="modalImg" src="" alt="Captura de pantalla" class="modal-img" />
+    </div>
+  </div>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>

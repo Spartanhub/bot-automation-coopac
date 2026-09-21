@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acceso | SBS COOPAC + INSACO LAFT</title>
+  <meta name="description" content="Sistema de consultas de Central de Riesgos SBS COOPAC y listas PLAFT INSACO LAFT" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/public/style.css" />
+</head>
+<body class="login-page">
+
+  <!-- Fondo animado con partículas -->
+  <div class="bg-mesh"></div>
+  <div class="particles" id="particles"></div>
+
+  <div class="login-wrapper">
+    <!-- Logo / Brand -->
+    <div class="login-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="20" fill="url(#grad1)" opacity="0.15"/>
+          <path d="M14 28C14 22 18 17 24 17C30 17 34 22 34 28" stroke="url(#grad1)" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="24" cy="28" r="4" fill="url(#grad1)"/>
+          <path d="M20 34h8" stroke="url(#grad1)" stroke-width="2.5" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="grad1" x1="14" y1="17" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#818cf8"/>
+              <stop offset="1" stop-color="#38bdf8"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <h1 class="brand-title">SBS COOPAC</h1>
+      <p class="brand-sub">Sistema de Consultas · Central de Riesgos + PLAFT</p>
+    </div>
+
+    <!-- Card de Login -->
+    <div class="login-card glass-card">
+      <h2 class="login-heading">Iniciar Sesión</h2>
+      <p class="login-desc">Ingresa tus credenciales para acceder al sistema</p>
+
+      <form id="loginForm" class="login-form" novalidate>
+        <div class="field-group">
+          <label for="username" class="field-label">Usuario</label>
+          <div class="field-wrap">
+            <span class="field-icon">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+            </span>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              class="field-input"
+              placeholder="Ingresa tu usuario"
+              autocomplete="username"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="password" class="field-label">Contraseña</label>
+          <div class="field-wrap">
+            <span class="field-icon">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+            </span>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              class="field-input"
+              placeholder="Ingresa tu contraseña"
+              autocomplete="current-password"
+              required
+            />
+            <button type="button" id="togglePass" class="toggle-pass" title="Mostrar/ocultar contraseña">
+              <svg id="eyeIcon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="loginError" class="login-error hidden">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          <span id="loginErrorText">Usuario o contraseña incorrectos</span>
+        </div>
+
+        <button type="submit" id="loginBtn" class="btn btn-primary btn-full">
+          <span id="loginBtnText">Ingresar al Sistema</span>
+          <span id="loginBtnSpinner" class="btn-spinner hidden"></span>
+        </button>
+      </form>
+    </div>
+
+    <p class="login-footer">
+      Sistema interno · Acceso restringido al personal autorizado
+    </p>
+  </div>
+
+  <script>
+    // Partículas de fondo
+    (function() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 30; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.cssText = `
+          left: ${Math.random() * 100}%;
+          top: ${Math.random() * 100}%;
+          width: ${2 + Math.random() * 4}px;
+          height: ${2 + Math.random() * 4}px;
+          animation-delay: ${Math.random() * 8}s;
+          animation-duration: ${6 + Math.random() * 8}s;
+        `;
+        container.appendChild(p);
+      }
+    })();
+
+    // Toggle password
+    document.getElementById('togglePass').addEventListener('click', function() {
+      const input = document.getElementById('password');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    });
+
+    // Login form
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const btnText = document.getElementById('loginBtnText');
+      const spinner = document.getElementById('loginBtnSpinner');
+      const error = document.getElementById('loginError');
+      const errorText = document.getElementById('loginErrorText');
+
+      error.classList.add('hidden');
+      btn.disabled = true;
+      btnText.textContent = 'Verificando...';
+      spinner.classList.remove('hidden');
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          btnText.textContent = '¡Acceso concedido!';
+          btn.classList.add('btn-success');
+          setTimeout(() => { window.location.href = '/'; }, 600);
+        } else {
+          errorText.textContent = data.error || 'Usuario o contraseña incorrectos';
+          error.classList.remove('hidden');
+          btn.disabled = false;
+          btnText.textContent = 'Ingresar al Sistema';
+          spinner.classList.add('hidden');
+          // Shake animation
+          document.querySelector('.login-card').classList.add('shake');
+          setTimeout(() => document.querySelector('.login-card').classList.remove('shake'), 500);
+        }
+      } catch {
+        errorText.textContent = 'Error de conexión. Intente nuevamente.';
+        error.classList.remove('hidden');
+        btn.disabled = false;
+        btnText.textContent = 'Ingresar al Sistema';
+        spinner.classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
