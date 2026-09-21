@@ -54,12 +54,15 @@
         <form id="queryForm" novalidate>
           <div class="query-row">
             <div class="field-group field-group-compact">
-              <label for="consultantName" class="field-label">¿Quién consulta?</label>
+              <label for="consultantName" class="field-label">
+                ¿Quién consulta? 
+                <span style="color: #f87171; font-size: 0.75rem; display: block; margin-top: 0.2rem; font-weight: normal;">(Ingresa solo tu nombre. NO ingresar DNI aquí)</span>
+              </label>
               <div class="field-wrap">
                 <span class="field-icon">
                   <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
                 </span>
-                <input id="consultantName" type="text" class="field-input" placeholder="Ej: Flavio Medina" required />
+                <input id="consultantName" type="text" class="field-input" placeholder="Ej: Flavio Medina (Solo letras)" oninput="this.value = this.value.replace(/[0-9]/g, '')" required />
               </div>
             </div>
 
