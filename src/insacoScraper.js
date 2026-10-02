@@ -90,48 +90,113 @@ export class InsacoScraper {
       Object.defineProperty(navigator, 'languages', { get: () => ['es-PE', 'es', 'en-US', 'en'] });
     });
 
+    // Interceptar la respuesta del endpoint de autenticación de INSACO para diagnóstico exacto
+    let tokenStatus = null;
+    let tokenBody = null;
+    const onResponse = async (res) => {
+      if (res.url().includes('/oauth/token')) {
+        tokenStatus = res.status();
+        try {
+          tokenBody = await res.text();
+          console.log(`[INSACO] Endpoint /oauth/token respondió: HTTP ${tokenStatus}`);
+        } catch (_) {}
+      }
+    };
+    page.on('response', onResponse);
+
     await page.goto(`${this.insacoUrl}/#/auth/login`, { waitUntil: 'networkidle2', timeout: this.timeout });
 
+    console.log('[INSACO] 2. Ingresando credenciales...');
     // Esperar a que Angular renderice el formulario
-    const userInput = await page.waitForSelector('#username', { timeout: 15000 });
+    const userInput = await page.waitForSelector('#username', { timeout: 20000 });
     await userInput.click({ clickCount: 3 });
     await page.keyboard.press('Backspace');
-    await userInput.type(this.username.trim(), { delay: 40 });
+    await userInput.type(this.username.trim(), { delay: 30 });
+    await page.evaluate((val) => {
+      const el = document.querySelector('#username');
+      if (el) {
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, this.username.trim());
 
-    const passInput = await page.waitForSelector('#password', { timeout: 15000 });
+    const passInput = await page.waitForSelector('#password', { timeout: 20000 });
     await passInput.click({ clickCount: 3 });
     await page.keyboard.press('Backspace');
-    await passInput.type(this.password.trim(), { delay: 40 });
+    await passInput.type(this.password.trim(), { delay: 30 });
+    await page.evaluate((val) => {
+      const el = document.querySelector('#password');
+      if (el) {
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, this.password.trim());
+
+    await new Promise(r => setTimeout(r, 500));
 
     console.log('[INSACO] 3. Clic en botón de acceso...');
-    await page.click('button[type="submit"]');
-
-    // Esperar respuesta de autenticación
-    await new Promise(r => setTimeout(r, 4000));
-
-    // Verificar si salió modal de error SweetAlert
-    const loginError = await page.evaluate(() => {
-      const swalContainer = document.querySelector('.swal2-container');
-      if (swalContainer) {
-        const htmlText = document.querySelector('.swal2-html-container')?.innerText;
-        const title = document.querySelector('.swal2-title')?.innerText;
-        return htmlText || title || null;
-      }
-      return null;
+    await page.evaluate(() => {
+      const btn = document.querySelector('button[type="submit"]');
+      if (btn) btn.click();
     });
 
-    if (loginError) {
-      const cleanError = loginError.replace(/\n+/g, ' ').trim();
-      console.error(`[INSACO] Error de login detectado: ${cleanError}`);
-      throw new Error(`Credenciales incorrectas o no válidas en INSACO LAFT: ${cleanError}`);
+    // Esperar hasta 25 segundos a que se complete el login (considerando latencia de Render)
+    let isSuccess = false;
+    let errorMessage = null;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < 25000) {
+      // a) Verificar si la URL ya cambió al panel admin
+      const currentUrl = page.url();
+      if (currentUrl.includes('/admin/') || currentUrl.includes('/dashboard') || currentUrl.includes('/search')) {
+        isSuccess = true;
+        break;
+      }
+
+      // b) Verificar si apareció modal de error SweetAlert
+      const swalText = await page.evaluate(() => {
+        const swalContainer = document.querySelector('.swal2-container');
+        if (swalContainer) {
+          const htmlText = document.querySelector('.swal2-html-container')?.innerText;
+          const title = document.querySelector('.swal2-title')?.innerText;
+          return htmlText || title || null;
+        }
+        return null;
+      });
+
+      if (swalText) {
+        errorMessage = swalText.replace(/\n+/g, ' ').trim();
+        break;
+      }
+
+      // c) Verificar si el endpoint de autenticación falló con error HTTP
+      if (tokenStatus && tokenStatus >= 400) {
+        let cleanErr = tokenBody;
+        try {
+          const j = JSON.parse(tokenBody);
+          cleanErr = j.error_description || j.error || j.message || tokenBody;
+        } catch (_) {}
+        errorMessage = `Error de autenticación INSACO (${tokenStatus}): ${cleanErr}`;
+        break;
+      }
+
+      await new Promise(r => setTimeout(r, 1000));
     }
 
-    // Verificar si el navegador sigue en la página de login
-    if (page.url().includes('/auth/login')) {
-      await new Promise(r => setTimeout(r, 2000));
-      if (page.url().includes('/auth/login')) {
-        throw new Error('Error de autenticación en INSACO LAFT: No se pudo iniciar sesión. Verifique INSACO_USER y INSACO_PASS.');
-      }
+    page.off('response', onResponse);
+
+    if (errorMessage) {
+      console.error(`[INSACO] Error detectado durante el login: ${errorMessage}`);
+      throw new Error(`Credenciales incorrectas o no válidas en INSACO LAFT: ${errorMessage}`);
+    }
+
+    if (!isSuccess) {
+      const finalUrl = page.url();
+      const bodySnippet = await page.evaluate(() => document.body ? document.body.innerText.substring(0, 300).replace(/\n+/g, ' ') : '');
+      console.error(`[INSACO] Timeout esperando redirección. URL actual: ${finalUrl} | Contenido: ${bodySnippet}`);
+      throw new Error(`Error de autenticación en INSACO LAFT: Tiempo de espera agotado al conectar al servidor (${finalUrl}).`);
     }
 
     console.log('[INSACO] 4. Login completado exitosamente.');
