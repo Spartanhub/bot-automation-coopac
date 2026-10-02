@@ -34,6 +34,7 @@ export class InsacoScraper {
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
+          '--disable-blink-features=AutomationControlled',
           '--disable-dev-shm-usage',
           '--disable-accelerated-2d-canvas',
           '--disable-gpu',
@@ -43,7 +44,8 @@ export class InsacoScraper {
         defaultViewport: {
           width: 1400,
           height: 900
-        }
+        },
+        ignoreDefaultArgs: ['--enable-automation']
       };
 
       try {
@@ -78,22 +80,33 @@ export class InsacoScraper {
    */
   async login(page) {
     console.log(`[INSACO] 1. Navegando a login: ${this.insacoUrl}/#/auth/login...`);
+    
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      window.navigator.chrome = { runtime: {} };
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, 'languages', { get: () => ['es-PE', 'es', 'en-US', 'en'] });
+    });
+
     await page.goto(`${this.insacoUrl}/#/auth/login`, { waitUntil: 'networkidle2', timeout: this.timeout });
 
     // Esperar a que Angular renderice el formulario
     const userInput = await page.waitForSelector('#username', { timeout: 15000 });
     await userInput.click({ clickCount: 3 });
-    await userInput.type(this.username, { delay: 30 });
+    await page.keyboard.press('Backspace');
+    await userInput.type(this.username.trim(), { delay: 40 });
 
     const passInput = await page.waitForSelector('#password', { timeout: 15000 });
     await passInput.click({ clickCount: 3 });
-    await passInput.type(this.password, { delay: 30 });
+    await page.keyboard.press('Backspace');
+    await passInput.type(this.password.trim(), { delay: 40 });
 
     console.log('[INSACO] 3. Clic en botón de acceso...');
     await page.click('button[type="submit"]');
 
     // Esperar respuesta de autenticación
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 4000));
 
     // Verificar si salió modal de error SweetAlert
     const loginError = await page.evaluate(() => {

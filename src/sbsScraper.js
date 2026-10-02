@@ -118,52 +118,34 @@ export class SbsScraper {
     const baseUrl = this.sbsUrl.replace('/auth.web/index.jsp', '');
     const formSelector = '#as_tipo_doc, select[name="as_tipo_doc"], form[action*="buscarposicionconsolidada"]';
 
-    // Estrategia 1: Navegar al endpoint loginPortalCoopac para establecer sesión del módulo
-    console.log('[SBS] 5a. Intentando vía loginPortalCoopac...');
+    // Estrategia 1: Usar la función JavaScript del menú del portal
+    console.log('[SBS] 5a. Navegando vía menú del portal...');
     try {
-      const loginPortalUrl = `${baseUrl}/crw-sf-coopac/loginPortalCoopac?c_c_producto=00013&token=`;
-      await page.goto(loginPortalUrl, { waitUntil: 'networkidle2', timeout: this.timeout });
-      await new Promise(r => setTimeout(r, 3000));
-
-      const found = await page.$(formSelector);
-      if (found) {
-        console.log('[SBS] Formulario de Central de Riesgos cargado (vía loginPortalCoopac).');
-        return;
-      }
-    } catch (e) {
-      console.log(`[SBS] loginPortalCoopac no funcionó: ${e.message}`);
-    }
-
-    // Estrategia 2: Usar la función JS del menú si está disponible
-    console.log('[SBS] 5b. Intentando vía base.getOpcionFromMenu...');
-    try {
-      // Volver al menú principal primero
-      await page.goto(`${baseUrl}/auth.web/menu.jsp`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-      await new Promise(r => setTimeout(r, 2000));
-
       await page.evaluate(() => {
         if (typeof base !== 'undefined' && base.getOpcionFromMenu) {
           base.getOpcionFromMenu('/crw-sf-coopac/loginPortalCoopac?c_c_producto=00013&token=');
+        } else {
+          const el = document.querySelector('.contenedor, a[onclick*="getOpcionFromMenu"]');
+          if (el) el.click();
         }
       });
 
-      await new Promise(r => setTimeout(r, 5000));
-
-      const found = await page.$(formSelector);
-      if (found) {
-        console.log('[SBS] Formulario de Central de Riesgos cargado (vía menú JS).');
-        return;
-      }
+      await page.waitForSelector(formSelector, { timeout: 15000 });
+      console.log('[SBS] Formulario de Central de Riesgos cargado.');
+      return;
     } catch (e) {
-      console.log(`[SBS] Menú JS no funcionó: ${e.message}`);
+      console.log(`[SBS] Navegación vía menú requiere fallback: ${e.message}`);
     }
 
-    // Estrategia 3: Navegar directamente a criesgos.jsp
-    console.log('[SBS] 5c. Intentando navegación directa a criesgos.jsp...');
+    // Estrategia 2: Navegación directa a criesgos.jsp
+    console.log('[SBS] 5b. Intentando navegación directa a criesgos.jsp...');
     try {
       const criesgosUrl = `${baseUrl}/crw-sf-coopac/criesgos/criesgos.jsp`;
       await page.goto(criesgosUrl, { waitUntil: 'domcontentloaded', timeout: this.timeout });
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 2000));
+      await page.waitForSelector(formSelector, { timeout: 15000 });
+      console.log('[SBS] Formulario de Central de Riesgos cargado (vía criesgos directo).');
+      return;
     } catch (e) {
       console.log(`[SBS] criesgos.jsp directo: ${e.message}`);
     }
@@ -171,14 +153,12 @@ export class SbsScraper {
     // Verificación final del formulario
     const currentUrl = page.url();
     const pageTitle = await page.title().catch(() => '(sin título)');
-    console.log(`[SBS] URL actual: ${currentUrl}`);
-    console.log(`[SBS] Título de página: ${pageTitle}`);
+    console.log(`[SBS] URL actual: ${currentUrl} | Título: ${pageTitle}`);
 
     try {
       await page.waitForSelector(formSelector, { timeout: 15000 });
       console.log('[SBS] Formulario de Central de Riesgos cargado.');
     } catch (e) {
-      // Capturar screenshot de diagnóstico antes de lanzar el error
       const diagPath = `./temp/capturas/diag_criesgos_${Date.now()}.png`;
       await page.screenshot({ path: diagPath, fullPage: true }).catch(() => {});
       console.error(`[SBS] No se pudo cargar el formulario. Screenshot de diagnóstico: ${diagPath}`);
@@ -190,7 +170,7 @@ export class SbsScraper {
   /**
    * Ejecuta la consulta de un documento y captura todos los módulos activos
    * @param {Object} queryParams
-   * @param {string} queryParams.type - 'DNI' | 'CE'
+   * @param {string} queryParams.type - 'DNI' | 'CE' | 'RUC' | 'PASAPORTE'
    * @param {string} queryParams.number - Número del documento
    * @param {string} queryParams.outputDir - Directorio de almacenamiento de imágenes
    * @returns {Promise<Array<{ name: string, label: string, path: string }>>}
@@ -225,27 +205,35 @@ export class SbsScraper {
       // 2. Ir a Central de Riesgos
       await this.goToCentralRiesgos(page);
 
-      // 3. Determinar código de documento según SBS (portal v17)
-      // 1 = Libreta Electoral / DNI, 2 = Carnet de Extranjería, 6 = RUC
+      // 3. Determinar código de documento según SBS
+      // 11 = LE/DNI, 12 = Carnet de Extranjería, 21 = RUC, 15 = Pasaporte
       const isCE = type.toUpperCase().includes('CE') || type.toUpperCase().includes('CARNET') || type.toUpperCase().includes('EXT');
       const isRUC = type.toUpperCase().includes('RUC');
+      const isPasaporte = type.toUpperCase().includes('PAS');
       
-      let docCode = '1';
+      let docCode = '11';
       let docLabel = 'DNI';
       if (isCE) {
-        docCode = '2';
+        docCode = '12';
         docLabel = 'Carné de Extranjería';
       } else if (isRUC) {
-        docCode = '6';
+        docCode = '21';
         docLabel = 'RUC';
+      } else if (isPasaporte) {
+        docCode = '15';
+        docLabel = 'Pasaporte';
       }
 
-      console.log(`[SBS] 6. Consultando [${docLabel}: ${number}]...`);
+      console.log(`[SBS] 6. Consultando [${docLabel}: ${number}] (código: ${docCode})...`);
       await page.select('#as_tipo_doc', docCode);
 
       const docInput = await page.$('input[name="as_doc_iden"], input.input-upper');
-      await docInput.click({ clickCount: 3 });
-      await docInput.type(String(number).trim(), { delay: 40 });
+      if (docInput) {
+        // Limpiar completamente el placeholder 'Número de Doc.' antes de tipear
+        await page.evaluate(el => { el.value = ''; }, docInput);
+        await docInput.click();
+        await docInput.type(String(number).trim(), { delay: 40 });
+      }
 
       // Clic en botón Consultar
       await Promise.all([
@@ -258,80 +246,26 @@ export class SbsScraper {
       const timestamp = Date.now();
       const sanitizedNum = String(number).replace(/[^a-zA-Z0-9]/g, '');
 
-      // Verificar si la persona no tiene información reportada, no presenta saldos o aparece un mensaje único
-      const alertInfo = await page.evaluate(() => {
+      // Verificar que realmente salimos del formulario de búsqueda y entramos al reporte
+      const pageState = await page.evaluate(() => {
         const bodyText = document.body ? document.body.innerText : '';
-        const hasMenu = !!document.querySelector('#idOp0, #Menu, a[onclick*="verConsolidado"], #idOp1');
-
-        // Buscar textos característicos de 'sin información' o 'sin saldos'
-        const isNoSaldos = bodyText.includes('no presenta saldos');
-        const isNoInfo = bodyText.includes('no tiene información reportada') ||
+        const isStillSearchForm = bodyText.includes('Nueva Consulta') && !bodyText.includes('Posición Consolidada') && !bodyText.includes('Datos del Deudor');
+        const hasDatosDeudor = bodyText.includes('Datos del Deudor') || bodyText.includes('Posición Consolidada');
+        const noInfo = bodyText.includes('no tiene información reportada') ||
           bodyText.includes('no registra información') ||
-          bodyText.includes('intente ingresando el Código SBS') ||
-          bodyText.includes('No se encontraron registros') ||
-          isNoSaldos;
-
-        let message = '';
-        if (isNoInfo) {
-          // Intentar extraer el texto específico del recuadro de alerta
-          const allElements = Array.from(document.querySelectorAll('div, td, p, span, font, center'));
-          const matchEl = allElements.find(el => {
-            const txt = el.innerText ? el.innerText.trim() : '';
-            return (
-              (txt.includes('no presenta saldos') ||
-                txt.includes('no tiene información reportada') ||
-                txt.includes('no registra información')) &&
-              txt.length < 200
-            );
-          });
-
-          if (matchEl) {
-            message = matchEl.innerText.trim();
-          } else if (isNoSaldos) {
-            message = 'La persona no presenta saldos en la Posición Consolidada.';
-          } else {
-            message = 'La persona consultada no tiene información reportada a la Central de Riesgos.';
-          }
-        }
-
-        return {
-          isNoInfo: isNoInfo || !hasMenu,
-          isNoSaldos: isNoSaldos,
-          message: message || (isNoInfo ? 'Consulta finalizada sin registros activos de saldo.' : '')
-        };
+          bodyText.includes('No se encontraron registros');
+        return { isStillSearchForm, hasDatosDeudor, noInfo, bodyText };
       });
 
-      if (alertInfo.isNoInfo) {
-        const estadoDesc = alertInfo.isNoSaldos ? 'Sin saldos en Posición Consolidada' : 'Sin información reportada';
-        console.log(`[SBS] ℹ️ Documento con alerta única [${estadoDesc}]: ${alertInfo.message}`);
-        const suffix = alertInfo.isNoSaldos ? 'sin_saldos' : 'sin_informacion';
-        const filePath = path.join(outputDir, `${sanitizedNum}_${suffix}_${timestamp}.png`);
-        await page.screenshot({ path: filePath, fullPage: true });
-
-        screenshots.push({
-          name: alertInfo.isNoSaldos ? 'Sin Saldos' : 'Sin Información Reportada',
-          label: alertInfo.isNoSaldos ? 'Sin Saldos' : 'Sin Información Reportada',
-          path: filePath,
-          noInfo: true,
-          message: alertInfo.message
-        });
-
-        console.log(` -> Capturado resultado único: ${filePath}`);
-        console.log(`[SBS] Proceso finalizado. Total capturas obtenidas: ${screenshots.length}`);
-        return screenshots;
+      if (pageState.isStillSearchForm && !pageState.hasDatosDeudor) {
+        throw new Error(`El número de documento ${number} no pudo ser consultado o es inválido en el portal SBS.`);
       }
 
-      // Definición de los módulos activos (Consolidado, Detallada, Histórica)
+      // Definición de los módulos a capturar (Consolidado, Detallada, Histórica)
       const modules = [
-        { key: '1_consolidado', label: 'Consolidado', opId: 'idOp0', funcName: 'verConsolidado' },
-        { key: '2_detallada', label: 'Detallada', opId: 'idOp4', funcName: 'verDetallada' },
-        { key: '3_historica', label: 'Histórica', opId: 'idOp2', funcName: 'verxHistorico' }
-        // Deshabilitados temporalmente:
-        // { key: 'tipo_credito', label: 'Por Tipo de Crédito', opId: 'idOp1', funcName: 'verxTipodeCredito' },
-        // { key: 'adicional', label: 'Adicional', opId: 'idOp3', funcName: 'verAdicional' },
-        // { key: 'al_cliente', label: 'Al Cliente', opId: 'idOp5', funcName: 'verPau' },
-        // { key: 'otros_reportes', label: 'Otros Reportes', opId: 'idOp6', funcName: 'verOtrosReportes' },
-        // { key: 'rio', label: 'RIO', opId: 'idOp7', funcName: 'verRio' }
+        { key: '1_consolidado', label: 'Consolidado', funcName: 'verConsolidado' },
+        { key: '2_detallada', label: 'Detallada', funcName: 'verDetallada' },
+        { key: '3_historica', label: 'Histórica', funcName: 'verxHistorico' }
       ];
 
       console.log('[SBS] 7. Iniciando captura de los módulos del reporte...');
@@ -342,28 +276,22 @@ export class SbsScraper {
 
         try {
           if (i > 0) {
-            // Activar el módulo
-            await page.evaluate((opId, funcName) => {
-              const el = document.getElementById(opId);
-              if (el) {
-                el.click();
-                return;
-              }
-              const links = Array.from(document.querySelectorAll('#Menu a, a'));
-              const target = links.find(a => a.id === opId || a.getAttribute('onclick')?.includes(funcName));
-              if (target) {
-                target.click();
-                return;
-              }
-              if (typeof window[funcName] === 'function') {
-                try { window[funcName](); } catch (_) { }
-              }
-            }, mod.opId, mod.funcName).catch(() => { });
-
-            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => { });
+            // Cambiar al módulo correspondiente ejecutando la función JS oficial del portal
+            await Promise.all([
+              page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 12000 }).catch(() => { }),
+              page.evaluate((fn) => {
+                if (typeof window[fn] === 'function') {
+                  window[fn]();
+                } else {
+                  const links = Array.from(document.querySelectorAll('a, span, li, button'));
+                  const target = links.find(el => el.innerText && el.innerText.trim().toLowerCase() === fn.replace('ver', '').toLowerCase());
+                  if (target) target.click();
+                }
+              }, mod.funcName)
+            ]);
             await new Promise(r => setTimeout(r, 2000));
           } else {
-            // El módulo inicial Consolidado ya está listo
+            // El módulo inicial Consolidado ya se encuentra en pantalla
             await new Promise(r => setTimeout(r, 1000));
           }
 
