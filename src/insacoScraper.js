@@ -31,6 +31,7 @@ export class InsacoScraper {
     if (!this.browser) {
       const launchOptions = {
         headless: this.headless ? true : false,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',

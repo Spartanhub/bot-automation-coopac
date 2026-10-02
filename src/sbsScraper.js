@@ -25,9 +25,11 @@ export class SbsScraper {
     if (!this.browser) {
       const launchOptions = {
         headless: this.headless ? true : false,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
+          '--disable-blink-features=AutomationControlled',
           '--disable-dev-shm-usage',
           '--disable-accelerated-2d-canvas',
           '--disable-gpu',
@@ -37,7 +39,8 @@ export class SbsScraper {
         defaultViewport: {
           width: 1400,
           height: 900
-        }
+        },
+        ignoreDefaultArgs: ['--enable-automation']
       };
 
       try {
