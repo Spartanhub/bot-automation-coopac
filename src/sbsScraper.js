@@ -113,16 +113,19 @@ export class SbsScraper {
    */
   async goToCentralRiesgos(page) {
     console.log('[SBS] 5. Ingresando al módulo de Central de Riesgos...');
-    await page.evaluate(() => {
-      if (typeof base !== 'undefined' && base.getOpcionFromMenu) {
-        base.getOpcionFromMenu('/crw-sf-coopac/loginPortalCoopac?c_c_producto=00013&token=');
-      } else {
-        const el = document.querySelector('.contenedor');
-        if (el) el.click();
-      }
+
+    // Navegar directamente a la URL del módulo de Central de Riesgos
+    // El método anterior (base.getOpcionFromMenu) dejó de funcionar y genera
+    // el error "Ocurrió un error al invocar el link"
+    const criesgosUrl = this.sbsUrl.replace('/auth.web/index.jsp', '/crw-sf-coopac/criesgos/criesgos.jsp');
+    await page.goto(criesgosUrl, { waitUntil: 'domcontentloaded', timeout: this.timeout }).catch(e => {
+      console.log(`[SBS] Advertencia al navegar a Central de Riesgos: ${e.message}. Continuando...`);
     });
 
-    await page.waitForSelector('form[action*="buscarposicionconsolidada"], select[name="as_tipo_doc"]', { timeout: 25000 });
+    await new Promise(r => setTimeout(r, 2000));
+
+    // Verificar que el formulario cargó correctamente
+    await page.waitForSelector('#as_tipo_doc, select[name="as_tipo_doc"]', { timeout: 25000 });
     console.log('[SBS] Formulario de Central de Riesgos cargado.');
   }
 
@@ -164,26 +167,27 @@ export class SbsScraper {
       // 2. Ir a Central de Riesgos
       await this.goToCentralRiesgos(page);
 
-      // 3. Determinar código de documento según SBS
-      // 11 = LE/DNI, 12 = Carnet de Extranjería, 15 = Pasaporte, 21 = RUC
+      // 3. Determinar código de documento según SBS (portal v17)
+      // 1 = Libreta Electoral / DNI, 2 = Carnet de Extranjería, 6 = RUC
       const isCE = type.toUpperCase().includes('CE') || type.toUpperCase().includes('CARNET') || type.toUpperCase().includes('EXT');
       const isRUC = type.toUpperCase().includes('RUC');
       
-      let docCode = '11';
+      let docCode = '1';
       let docLabel = 'DNI';
       if (isCE) {
-        docCode = '12';
+        docCode = '2';
         docLabel = 'Carné de Extranjería';
       } else if (isRUC) {
-        docCode = '21';
+        docCode = '6';
         docLabel = 'RUC';
       }
 
       console.log(`[SBS] 6. Consultando [${docLabel}: ${number}]...`);
-      await page.select('select[name="as_tipo_doc"]', docCode);
+      await page.select('#as_tipo_doc', docCode);
 
-      await page.click('input[name="as_doc_iden"]', { clickCount: 3 });
-      await page.type('input[name="as_doc_iden"]', String(number).trim(), { delay: 40 });
+      const docInput = await page.$('input[name="as_doc_iden"], input.input-upper');
+      await docInput.click({ clickCount: 3 });
+      await docInput.type(String(number).trim(), { delay: 40 });
 
       // Clic en botón Consultar
       await Promise.all([
