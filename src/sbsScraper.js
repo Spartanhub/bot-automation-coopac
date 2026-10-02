@@ -110,23 +110,81 @@ export class SbsScraper {
 
   /**
    * Navega desde el menú principal hacia el módulo de Central de Riesgos
+   * Usa múltiples estrategias de navegación con fallbacks
    */
   async goToCentralRiesgos(page) {
     console.log('[SBS] 5. Ingresando al módulo de Central de Riesgos...');
 
-    // Navegar directamente a la URL del módulo de Central de Riesgos
-    // El método anterior (base.getOpcionFromMenu) dejó de funcionar y genera
-    // el error "Ocurrió un error al invocar el link"
-    const criesgosUrl = this.sbsUrl.replace('/auth.web/index.jsp', '/crw-sf-coopac/criesgos/criesgos.jsp');
-    await page.goto(criesgosUrl, { waitUntil: 'domcontentloaded', timeout: this.timeout }).catch(e => {
-      console.log(`[SBS] Advertencia al navegar a Central de Riesgos: ${e.message}. Continuando...`);
-    });
+    const baseUrl = this.sbsUrl.replace('/auth.web/index.jsp', '');
+    const formSelector = '#as_tipo_doc, select[name="as_tipo_doc"], form[action*="buscarposicionconsolidada"]';
 
-    await new Promise(r => setTimeout(r, 2000));
+    // Estrategia 1: Navegar al endpoint loginPortalCoopac para establecer sesión del módulo
+    console.log('[SBS] 5a. Intentando vía loginPortalCoopac...');
+    try {
+      const loginPortalUrl = `${baseUrl}/crw-sf-coopac/loginPortalCoopac?c_c_producto=00013&token=`;
+      await page.goto(loginPortalUrl, { waitUntil: 'networkidle2', timeout: this.timeout });
+      await new Promise(r => setTimeout(r, 3000));
 
-    // Verificar que el formulario cargó correctamente
-    await page.waitForSelector('#as_tipo_doc, select[name="as_tipo_doc"]', { timeout: 25000 });
-    console.log('[SBS] Formulario de Central de Riesgos cargado.');
+      const found = await page.$(formSelector);
+      if (found) {
+        console.log('[SBS] Formulario de Central de Riesgos cargado (vía loginPortalCoopac).');
+        return;
+      }
+    } catch (e) {
+      console.log(`[SBS] loginPortalCoopac no funcionó: ${e.message}`);
+    }
+
+    // Estrategia 2: Usar la función JS del menú si está disponible
+    console.log('[SBS] 5b. Intentando vía base.getOpcionFromMenu...');
+    try {
+      // Volver al menú principal primero
+      await page.goto(`${baseUrl}/auth.web/menu.jsp`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+      await new Promise(r => setTimeout(r, 2000));
+
+      await page.evaluate(() => {
+        if (typeof base !== 'undefined' && base.getOpcionFromMenu) {
+          base.getOpcionFromMenu('/crw-sf-coopac/loginPortalCoopac?c_c_producto=00013&token=');
+        }
+      });
+
+      await new Promise(r => setTimeout(r, 5000));
+
+      const found = await page.$(formSelector);
+      if (found) {
+        console.log('[SBS] Formulario de Central de Riesgos cargado (vía menú JS).');
+        return;
+      }
+    } catch (e) {
+      console.log(`[SBS] Menú JS no funcionó: ${e.message}`);
+    }
+
+    // Estrategia 3: Navegar directamente a criesgos.jsp
+    console.log('[SBS] 5c. Intentando navegación directa a criesgos.jsp...');
+    try {
+      const criesgosUrl = `${baseUrl}/crw-sf-coopac/criesgos/criesgos.jsp`;
+      await page.goto(criesgosUrl, { waitUntil: 'domcontentloaded', timeout: this.timeout });
+      await new Promise(r => setTimeout(r, 3000));
+    } catch (e) {
+      console.log(`[SBS] criesgos.jsp directo: ${e.message}`);
+    }
+
+    // Verificación final del formulario
+    const currentUrl = page.url();
+    const pageTitle = await page.title().catch(() => '(sin título)');
+    console.log(`[SBS] URL actual: ${currentUrl}`);
+    console.log(`[SBS] Título de página: ${pageTitle}`);
+
+    try {
+      await page.waitForSelector(formSelector, { timeout: 15000 });
+      console.log('[SBS] Formulario de Central de Riesgos cargado.');
+    } catch (e) {
+      // Capturar screenshot de diagnóstico antes de lanzar el error
+      const diagPath = `./temp/capturas/diag_criesgos_${Date.now()}.png`;
+      await page.screenshot({ path: diagPath, fullPage: true }).catch(() => {});
+      console.error(`[SBS] No se pudo cargar el formulario. Screenshot de diagnóstico: ${diagPath}`);
+      console.error(`[SBS] URL final: ${currentUrl} | Título: ${pageTitle}`);
+      throw new Error(`No se pudo acceder al formulario de Central de Riesgos. URL: ${currentUrl}`);
+    }
   }
 
   /**
