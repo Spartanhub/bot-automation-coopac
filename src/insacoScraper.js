@@ -80,10 +80,7 @@ export class InsacoScraper {
     console.log(`[INSACO] 1. Navegando a login: ${this.insacoUrl}/#/auth/login...`);
     await page.goto(`${this.insacoUrl}/#/auth/login`, { waitUntil: 'networkidle2', timeout: this.timeout });
 
-    // Esperar un poco a que Angular renderice
-    await new Promise(r => setTimeout(r, 2000));
-
-    console.log('[INSACO] 2. Ingresando credenciales...');
+    // Esperar a que Angular renderice el formulario
     const userInput = await page.waitForSelector('#username', { timeout: 15000 });
     await userInput.click({ clickCount: 3 });
     await userInput.type(this.username, { delay: 30 });
@@ -93,13 +90,37 @@ export class InsacoScraper {
     await passInput.type(this.password, { delay: 30 });
 
     console.log('[INSACO] 3. Clic en botón de acceso...');
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: this.timeout }).catch(() => { }),
-      page.click('button[type="submit"]')
-    ]);
+    await page.click('button[type="submit"]');
 
-    await new Promise(r => setTimeout(r, 2000));
-    console.log('[INSACO] 4. Login completado.');
+    // Esperar respuesta de autenticación
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Verificar si salió modal de error SweetAlert
+    const loginError = await page.evaluate(() => {
+      const swalContainer = document.querySelector('.swal2-container');
+      if (swalContainer) {
+        const htmlText = document.querySelector('.swal2-html-container')?.innerText;
+        const title = document.querySelector('.swal2-title')?.innerText;
+        return htmlText || title || null;
+      }
+      return null;
+    });
+
+    if (loginError) {
+      const cleanError = loginError.replace(/\n+/g, ' ').trim();
+      console.error(`[INSACO] Error de login detectado: ${cleanError}`);
+      throw new Error(`Credenciales incorrectas o no válidas en INSACO LAFT: ${cleanError}`);
+    }
+
+    // Verificar si el navegador sigue en la página de login
+    if (page.url().includes('/auth/login')) {
+      await new Promise(r => setTimeout(r, 2000));
+      if (page.url().includes('/auth/login')) {
+        throw new Error('Error de autenticación en INSACO LAFT: No se pudo iniciar sesión. Verifique INSACO_USER y INSACO_PASS.');
+      }
+    }
+
+    console.log('[INSACO] 4. Login completado exitosamente.');
   }
 
   /**
@@ -146,7 +167,9 @@ export class InsacoScraper {
       // 2. Ir a Consultas
       console.log('[INSACO] 5. Navegando a Consultas...');
       await page.goto(`${this.insacoUrl}/#/admin/search`, { waitUntil: 'networkidle2', timeout: this.timeout });
-      await new Promise(r => setTimeout(r, 2000));
+
+      // Esperar a que el selector #filterBy esté presente en el DOM
+      await page.waitForSelector('#filterBy', { timeout: 15000 });
 
       // 3. Determinar código de documento
       const isRUC = type.toUpperCase().includes('RUC') || String(number).length === 11;
@@ -158,6 +181,7 @@ export class InsacoScraper {
       await page.select('#filterBy', '1');
 
       // Seleccionar tipo de documento
+      await page.waitForSelector('#documentType', { timeout: 10000 });
       await page.select('#documentType', docCode);
 
       // Ingresar número
