@@ -112,32 +112,33 @@ export class InsacoScraper {
     await page.goto(`${this.insacoUrl}/#/auth/login`, { waitUntil: 'networkidle2', timeout: this.timeout });
 
     console.log('[INSACO] 2. Ingresando credenciales...');
-    // Esperar a que Angular renderice el formulario
-    const userInput = await page.waitForSelector('#username', { timeout: 20000 });
-    await userInput.click({ clickCount: 3 });
-    await page.keyboard.press('Backspace');
-    await userInput.type(this.username.trim(), { delay: 30 });
-    await page.evaluate((val) => {
-      const el = document.querySelector('#username');
-      if (el) {
-        el.value = val;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    }, this.username.trim());
+    // Usar inyección directa vía JavaScript para evitar problemas de keyboard layout
+    // en Linux headless (Render) donde type() puede fallar con caracteres como +
+    await page.waitForSelector('#username', { timeout: 20000 });
+    await page.waitForSelector('#password', { timeout: 20000 });
 
-    const passInput = await page.waitForSelector('#password', { timeout: 20000 });
-    await passInput.click({ clickCount: 3 });
-    await page.keyboard.press('Backspace');
-    await passInput.type(this.password.trim(), { delay: 30 });
-    await page.evaluate((val) => {
-      const el = document.querySelector('#password');
-      if (el) {
-        el.value = val;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
+    await page.evaluate((user, pass) => {
+      // Helper: inyectar valor en un input Angular de forma confiable
+      function setAngularInput(selector, value) {
+        const el = document.querySelector(selector);
+        if (!el) return;
+        el.focus();
+        el.value = '';
+        // execCommand('insertText') dispara los eventos internos que Angular necesita
+        document.execCommand('insertText', false, value);
+        // Fallback: si execCommand no funcionó, setear el valor directamente
+        if (el.value !== value) {
+          el.value = value;
+        }
+        // Disparar eventos que Angular reactive forms escucha
+        el.dispatchEvent(new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('blur', { bubbles: true }));
       }
-    }, this.password.trim());
+
+      setAngularInput('#username', user);
+      setAngularInput('#password', pass);
+    }, this.username.trim(), this.password.trim());
 
     await new Promise(r => setTimeout(r, 500));
 
