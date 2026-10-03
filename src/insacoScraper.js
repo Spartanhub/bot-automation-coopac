@@ -80,6 +80,11 @@ export class InsacoScraper {
    * Inicia sesión en el portal INSACO
    */
   async login(page) {
+    // Diagnóstico temporal: verificar qué credenciales está recibiendo el scraper
+    const maskedPass = this.password.length > 2 
+      ? this.password[0] + '*'.repeat(this.password.length - 2) + this.password[this.password.length - 1] 
+      : '***';
+    console.log(`[INSACO] Diagnóstico: usuario="${this.username}", password="${maskedPass}" (${this.password.length} chars), contiene +: ${this.password.includes('+')}`);
     console.log(`[INSACO] 1. Navegando a login: ${this.insacoUrl}/#/auth/login...`);
     
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
@@ -200,6 +205,121 @@ export class InsacoScraper {
     }
 
     console.log('[INSACO] 4. Login completado exitosamente.');
+
+    // Verificar si apareció el modal de "Control de Acceso" (re-autenticación de seguridad)
+    await this.handleAccessControlModal(page);
+  }
+
+  /**
+   * Detecta y resuelve el modal "Control de Acceso" de seguridad que INSACO
+   * muestra ocasionalmente después del login pidiendo re-ingresar la contraseña.
+   */
+  async handleAccessControlModal(page) {
+    try {
+      // Esperar un momento para que el modal tenga tiempo de renderizar
+      await new Promise(r => setTimeout(r, 2000));
+
+      // Detectar si el modal de "Control de Acceso" está presente
+      const hasAccessControl = await page.evaluate(() => {
+        const bodyText = document.body.innerText || '';
+        // Buscar el texto del modal o el placeholder del input
+        return bodyText.includes('Control de Acceso') || 
+               bodyText.includes('Ingrese su contraseña') ||
+               !!document.querySelector('input[placeholder*="contraseña"]') ||
+               !!document.querySelector('input[placeholder*="Ingrese su contra"]');
+      });
+
+      if (!hasAccessControl) {
+        return; // No hay modal, continuar normalmente
+      }
+
+      console.log('[INSACO] ⚠ Modal de "Control de Acceso" detectado. Re-ingresando contraseña...');
+
+      // Buscar el input de contraseña del modal (no el del login principal)
+      const modalPassInput = await page.evaluate(() => {
+        // Buscar inputs de tipo password que estén visibles
+        const inputs = Array.from(document.querySelectorAll('input[type="password"], input[placeholder*="contraseña"], input[placeholder*="Ingrese su contra"]'));
+        for (const input of inputs) {
+          const rect = input.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (!modalPassInput) {
+        console.log('[INSACO] Modal detectado pero no se encontró input de contraseña visible.');
+        return;
+      }
+
+      // Ingresar la contraseña en el modal
+      // Encontrar y limpiar el input, luego escribir la contraseña
+      await page.evaluate(() => {
+        const inputs = Array.from(document.querySelectorAll('input[type="password"], input[placeholder*="contraseña"], input[placeholder*="Ingrese su contra"]'));
+        for (const input of inputs) {
+          const rect = input.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            input.focus();
+            input.value = '';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            break;
+          }
+        }
+      });
+
+      // Escribir la contraseña carácter por carácter
+      await page.keyboard.type(this.password.trim(), { delay: 30 });
+
+      // Disparar eventos de Angular
+      await page.evaluate((val) => {
+        const inputs = Array.from(document.querySelectorAll('input[type="password"], input[placeholder*="contraseña"], input[placeholder*="Ingrese su contra"]'));
+        for (const input of inputs) {
+          const rect = input.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            input.value = val;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            break;
+          }
+        }
+      }, this.password.trim());
+
+      await new Promise(r => setTimeout(r, 500));
+
+      // Clic en el botón "Acceder" del modal
+      await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const accederBtn = btns.find(b => {
+          const text = b.innerText.trim().toLowerCase();
+          return text.includes('acceder') || text.includes('aceptar') || text.includes('ingresar');
+        });
+        if (accederBtn) {
+          accederBtn.click();
+        }
+      });
+
+      console.log('[INSACO] ✓ Contraseña re-ingresada en modal de Control de Acceso.');
+
+      // Esperar a que el modal se cierre
+      await new Promise(r => setTimeout(r, 3000));
+
+      // Verificar si el modal se cerró exitosamente
+      const stillHasModal = await page.evaluate(() => {
+        const bodyText = document.body.innerText || '';
+        return bodyText.includes('Control de Acceso') && bodyText.includes('Ingrese su contraseña');
+      });
+
+      if (stillHasModal) {
+        console.warn('[INSACO] ⚠ El modal de Control de Acceso sigue visible después de ingresar la contraseña.');
+      } else {
+        console.log('[INSACO] ✓ Modal de Control de Acceso resuelto correctamente.');
+      }
+
+    } catch (err) {
+      console.warn(`[INSACO] Error al manejar modal de Control de Acceso: ${err.message}`);
+      // No lanzar error, intentar continuar de todas formas
+    }
   }
 
   /**
@@ -246,6 +366,9 @@ export class InsacoScraper {
       // 2. Ir a Consultas
       console.log('[INSACO] 5. Navegando a Consultas...');
       await page.goto(`${this.insacoUrl}/#/admin/search`, { waitUntil: 'networkidle2', timeout: this.timeout });
+
+      // Verificar si el modal de Control de Acceso aparece también al navegar
+      await this.handleAccessControlModal(page);
 
       // Esperar a que el selector #filterBy esté presente en el DOM
       await page.waitForSelector('#filterBy', { timeout: 15000 });
