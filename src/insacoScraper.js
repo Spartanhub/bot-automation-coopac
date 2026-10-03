@@ -98,12 +98,24 @@ export class InsacoScraper {
     // Interceptar la respuesta del endpoint de autenticación de INSACO para diagnóstico exacto
     let tokenStatus = null;
     let tokenBody = null;
+    let requestBody = null;
+
+    // Interceptar requests para ver qué se envía al servidor
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      if (req.url().includes('/oauth/token')) {
+        requestBody = req.postData();
+        console.log(`[INSACO] >>> POST /oauth/token BODY: ${requestBody}`);
+      }
+      req.continue();
+    });
+
     const onResponse = async (res) => {
       if (res.url().includes('/oauth/token')) {
         tokenStatus = res.status();
         try {
           tokenBody = await res.text();
-          console.log(`[INSACO] Endpoint /oauth/token respondió: HTTP ${tokenStatus}`);
+          console.log(`[INSACO] <<< /oauth/token RESPUESTA: HTTP ${tokenStatus} | ${tokenBody}`);
         } catch (_) {}
       }
     };
@@ -111,34 +123,71 @@ export class InsacoScraper {
 
     await page.goto(`${this.insacoUrl}/#/auth/login`, { waitUntil: 'networkidle2', timeout: this.timeout });
 
-    console.log('[INSACO] 2. Ingresando credenciales...');
-    // Usar inyección directa vía JavaScript para evitar problemas de keyboard layout
-    // en Linux headless (Render) donde type() puede fallar con caracteres como +
+    // Guardar screenshot de la página de login para diagnóstico
+    const debugDir = path.resolve('./temp/debug');
+    if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+    await page.screenshot({ path: path.join(debugDir, 'insaco_01_login_page.png'), fullPage: true });
+    console.log('[INSACO] Screenshot guardado: insaco_01_login_page.png');
+
+    console.log('[INSACO] 2. Ingresando credenciales con múltiples métodos...');
     await page.waitForSelector('#username', { timeout: 20000 });
     await page.waitForSelector('#password', { timeout: 20000 });
 
+    // MÉTODO 1: nativeInputValueSetter (más confiable para Angular/React en headless)
     await page.evaluate((user, pass) => {
-      // Helper: inyectar valor en un input Angular de forma confiable
-      function setAngularInput(selector, value) {
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype, 'value'
+      ).set;
+
+      function setInput(selector, value) {
         const el = document.querySelector(selector);
         if (!el) return;
         el.focus();
-        el.value = '';
-        // execCommand('insertText') dispara los eventos internos que Angular necesita
-        document.execCommand('insertText', false, value);
-        // Fallback: si execCommand no funcionó, setear el valor directamente
-        if (el.value !== value) {
-          el.value = value;
-        }
-        // Disparar eventos que Angular reactive forms escucha
-        el.dispatchEvent(new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }));
+        nativeSetter.call(el, '');
+        nativeSetter.call(el, value);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
-        el.dispatchEvent(new Event('blur', { bubbles: true }));
       }
 
-      setAngularInput('#username', user);
-      setAngularInput('#password', pass);
+      setInput('#username', user);
+      setInput('#password', pass);
     }, this.username.trim(), this.password.trim());
+
+    // MÉTODO 2: Refuerzo con sendCharacter (inyecta texto sin depender de keyboard layout)
+    await page.click('#username', { clickCount: 3 });
+    await page.keyboard.press('Backspace');
+    for (const char of this.username.trim()) {
+      await page.keyboard.sendCharacter(char);
+    }
+
+    await page.click('#password', { clickCount: 3 });
+    await page.keyboard.press('Backspace');
+    for (const char of this.password.trim()) {
+      await page.keyboard.sendCharacter(char);
+    }
+
+    // Verificar los valores reales en el DOM antes de enviar
+    const fieldValues = await page.evaluate(() => {
+      const u = document.querySelector('#username');
+      const p = document.querySelector('#password');
+      return {
+        username: u ? u.value : 'NO ENCONTRADO',
+        passLength: p ? p.value.length : -1,
+        passFirst: p ? p.value[0] : '?',
+        passLast: p ? p.value.slice(-1) : '?',
+        passHasPlus: p ? p.value.includes('+') : false,
+        btnDisabled: document.querySelector('button[type="submit"]')?.disabled,
+        pageText: document.body.innerText.substring(0, 500)
+      };
+    });
+    const maskedPre = fieldValues.passLength > 2 
+      ? fieldValues.passFirst + '*'.repeat(fieldValues.passLength - 2) + fieldValues.passLast 
+      : '***';
+    console.log(`[INSACO] PRE-SUBMIT: user="${fieldValues.username}", pass="${maskedPre}" (${fieldValues.passLength} chars, has+=${fieldValues.passHasPlus}), btnDisabled=${fieldValues.btnDisabled}`);
+
+    // Screenshot antes de hacer submit
+    await page.screenshot({ path: path.join(debugDir, 'insaco_02_pre_submit.png'), fullPage: true });
+    console.log('[INSACO] Screenshot guardado: insaco_02_pre_submit.png');
 
     await new Promise(r => setTimeout(r, 500));
 
@@ -194,7 +243,13 @@ export class InsacoScraper {
     page.off('response', onResponse);
 
     if (errorMessage) {
+      // Capturar screenshot del error para diagnóstico
+      try {
+        await page.screenshot({ path: path.join(debugDir, 'insaco_03_error.png'), fullPage: true });
+        console.log('[INSACO] Screenshot de error guardado: insaco_03_error.png');
+      } catch (_) {}
       console.error(`[INSACO] Error detectado durante el login: ${errorMessage}`);
+      console.error(`[INSACO] Request body enviado: ${requestBody || 'NO INTERCEPTADO'}`);
       throw new Error(`Credenciales incorrectas o no válidas en INSACO LAFT: ${errorMessage}`);
     }
 
